@@ -1,13 +1,9 @@
 streamlit
-requests
-numpy
-opencv-python-headless
 ultralytics
+opencv-python-headless
 flask
 gunicorn
-tqdm
-Pillow
+requests
+numpy
 pandas
-matplotlib
-seaborn
-protobuf
+
