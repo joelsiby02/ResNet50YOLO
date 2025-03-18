@@ -10,6 +10,15 @@ from flask import Flask, request, jsonify, send_from_directory, Response
 from ultralytics import YOLO
 from streamlit_extras.let_it_rain import rain
 
+
+
+# For deployment in streamlit cloud
+os.environ["OPENCV_VIDEOIO_PRIORITY_MSMF"] = "0"  # Disable MSMF backend on Linux
+os.environ["OPENCV_AVFOUNDATION_SKIP_DECODE"] = "1"  # Skip AVFoundation on Mac
+os.environ["QT_QPA_PLATFORM"] = "offscreen"  # Forces OpenCV to use non-GUI mode
+
+
+
 # ---------------------- Flask Backend Setup ----------------------
 app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
