@@ -1,10 +1,10 @@
+import os
 # For deployment in streamlit cloud
 os.environ["QT_QPA_PLATFORM"] = "offscreen"  # Forces OpenCV to use non-GUI mode
 
 
 import streamlit as st
 import requests
-import os
 import atexit
 import shutil
 import cv2
