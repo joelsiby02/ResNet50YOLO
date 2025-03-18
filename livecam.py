@@ -1,3 +1,7 @@
+# For deployment in streamlit cloud
+os.environ["QT_QPA_PLATFORM"] = "offscreen"  # Forces OpenCV to use non-GUI mode
+
+
 import streamlit as st
 import requests
 import os
@@ -9,11 +13,6 @@ import numpy as np
 from flask import Flask, request, jsonify, send_from_directory, Response
 from ultralytics import YOLO
 from streamlit_extras.let_it_rain import rain
-
-
-
-# For deployment in streamlit cloud
-os.environ["QT_QPA_PLATFORM"] = "offscreen"  # Forces OpenCV to use non-GUI mode
 
 
 # ---------------------- Flask Backend Setup ----------------------
