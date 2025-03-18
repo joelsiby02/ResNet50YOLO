@@ -6,4 +6,5 @@ gunicorn
 requests
 numpy
 pandas
+streamlit_extras
 
