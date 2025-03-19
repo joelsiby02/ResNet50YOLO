@@ -1,18 +1,10 @@
 import streamlit as st
-
-# Move set_page_config to the top
-st.set_page_config(
-    page_title="ISL Detector",
-    page_icon="🖼️",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
 import os
 import shutil
 import cv2
 import numpy as np
 import glob
+import time
 from ultralytics import YOLO
 from streamlit_extras.let_it_rain import rain
 import atexit
@@ -32,31 +24,29 @@ def load_model():
 model = load_model()
 
 # ---------------------- Helper Functions ----------------------
-def convert_video_to_mp4(input_path, output_path):
-    cap = cv2.VideoCapture(input_path)
-    fourcc = cv2.VideoWriter_fourcc(*'avc1')
-    out = cv2.VideoWriter(output_path, fourcc, 
-                         cap.get(cv2.CAP_PROP_FPS), 
-                         (int(cap.get(3)), int(cap.get(4))))
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret: break
-        out.write(frame)
-    cap.release()
-    out.release()
-    os.remove(input_path)
-
 def cleanup():
-    shutil.rmtree("uploads", ignore_errors=True)
+    """Delete temp files when app closes."""
+    shutil.rmtree(UPLOAD_FOLDER, ignore_errors=True)
     shutil.rmtree("runs", ignore_errors=True)
 
-# ---------------------- Streamlit App ----------------------
-# st.set_page_config(
-#     page_title="ISL Detector",
-#     page_icon="🖼️",
-#     layout="wide",
-#     initial_sidebar_state="expanded"
-# )
+def success_animation():
+    """Trigger a success animation."""
+    rain(emoji="🎉", font_size=20, falling_speed=3, animation_length=1)
+
+def get_latest_file(folder, extensions):
+    """Fetch the latest file in a directory with specified extensions."""
+    files = []
+    for ext in extensions:
+        files.extend(glob.glob(os.path.join(folder, f"*.{ext}")))
+    return max(files, key=os.path.getctime) if files else None
+
+# ---------------------- Streamlit UI ----------------------
+st.set_page_config(
+    page_title="ISL Detector",
+    page_icon="🖼️",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 st.markdown("""
     <style>
@@ -71,70 +61,76 @@ with st.sidebar:
     with st.expander("ℹ️ Instructions"):
         st.markdown("1. Select mode\n2. Upload media\n3. Detect objects")
 
-def success_animation():
-    rain(emoji="🎉", font_size=20, falling_speed=3, animation_length=1)
-
-# Main Application Logic
-st.title("ISL - Real-Time Detection System")
-
 # ---------------------- Image Detection ----------------------
 if "Image" in app_mode:
-    uploaded_file = st.file_uploader("Upload image", type=ALLOWED_IMAGE_TYPES)
+    uploaded_file = st.file_uploader("Upload an image", type=ALLOWED_IMAGE_TYPES)
+    
     if uploaded_file and st.button("🔍 Detect"):
         with st.spinner("Analyzing..."):
-            # Process image
-            image = cv2.imdecode(np.frombuffer(uploaded_file.read(), np.uint8), cv2.IMREAD_COLOR)
-            results = model.predict(image, save=True, project="runs/detect", name="predict", exist_ok=True)
-            
+            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+            # Save image
+            image_path = os.path.join(UPLOAD_FOLDER, uploaded_file.name)
+            with open(image_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+
+            # Run YOLO detection
+            results = model.predict(image_path, save=True, project="runs/detect", name="predict", exist_ok=True)
+
+            # Fetch processed image
+            latest_image_path = get_latest_file(RESULT_FOLDER, ["jpg", "png"])
+
             col1, col2 = st.columns(2)
             with col1:
-                st.image(image, channels="BGR", use_container_width=True)
+                st.image(image_path, caption="Original Image", use_column_width=True)
             with col2:
-                annotated_image = results[0].plot()
-                st.image(annotated_image[..., ::-1], use_container_width=True)  # Convert BGR to RGB
-                success_animation()
+                if latest_image_path:
+                    st.image(latest_image_path, caption="Processed Image", use_column_width=True)
+                    with open(latest_image_path, "rb") as file:
+                        st.download_button(label="📥 Download Processed Image", data=file, file_name="result.jpg", mime="image/jpeg")
+                    success_animation()
+                else:
+                    st.error("No processed image found!")
 
 # ---------------------- Video Analysis ----------------------
 elif "Video" in app_mode:
-    uploaded_video = st.file_uploader("Upload video", type=ALLOWED_VIDEO_TYPES)
+    uploaded_video = st.file_uploader("Upload a video", type=ALLOWED_VIDEO_TYPES)
+    
     if uploaded_video and st.button("🔍 Analyze"):
         with st.spinner("Processing..."):
-            # Save video
             os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+            # Save uploaded video
             video_path = os.path.join(UPLOAD_FOLDER, uploaded_video.name)
             with open(video_path, "wb") as f:
                 f.write(uploaded_video.getbuffer())
-            
-            # Process video
-            detected_classes = set()
-            results = model.predict(source=video_path, save=True, project="runs/detect", name="predict", exist_ok=True)
-            
-            for result in results:
-                for box in result.boxes:
-                    detected_classes.add(model.names[int(box.cls.item())])
-            
-            # Convert output video
-            base_name = os.path.splitext(uploaded_video.name)[0]
-            avi_path = max(glob.glob(os.path.join(RESULT_FOLDER, f"{base_name}*.avi")), key=os.path.getctime)
-            mp4_path = avi_path.replace(".avi", ".mp4")
-            convert_video_to_mp4(avi_path, mp4_path)
-            
-            # Display results
-            st.video(mp4_path)
-            if detected_classes:
-                st.subheader("Detected Signs:")
-                st.write(", ".join(detected_classes))
 
-# ---------------------- Live Camera Mode ----------------------
+            # Run YOLO detection
+            results = model.predict(source=video_path, save=True, project="runs/detect", name="predict", exist_ok=True)
+
+            # Wait for processing
+            time.sleep(2)
+
+            # Fetch processed video
+            latest_video_path = get_latest_file(RESULT_FOLDER, ["mp4", "avi"])
+            
+            if latest_video_path:
+                st.video(latest_video_path)
+                with open(latest_video_path, "rb") as file:
+                    st.download_button(label="📥 Download Processed Video", data=file, file_name="result.mp4", mime="video/mp4")
+                st.success("Detection Completed!")
+                success_animation()
+            else:
+                st.error("No processed video found!")
+
 # ---------------------- Live Camera Mode ----------------------
 else:
     st.write("Real-Time Sign Language Detection")
-    
+
     # Initialize session state
     if 'running' not in st.session_state:
         st.session_state.running = False
-    
-    # Start/Stop controls
+
     col1, col2 = st.columns(2)
     with col1:
         if st.button("Start Live Detection 🚀") and not st.session_state.running:
@@ -142,39 +138,32 @@ else:
     with col2:
         if st.button("Stop Detection ⏹️") and st.session_state.running:
             st.session_state.running = False
-            
-    FRAME_WINDOW = st.image([])
-    
-    # Camera initialization
+
+    FRAME_WINDOW = st.empty()
+
     if 'cap' not in st.session_state:
         st.session_state.cap = cv2.VideoCapture(0)
         st.session_state.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         st.session_state.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
-    # Frame processing loop
-    if st.session_state.running:
-        while st.session_state.running:
-            ret, frame = st.session_state.cap.read()
-            if not ret:
-                st.error("Failed to capture frame")
-                st.session_state.running = False
-                break
-            
-            # Process frame
-            results = model.predict(frame)
-            annotated_frame = results[0].plot()
-            
-            # Convert to RGB and display
-            FRAME_WINDOW.image(annotated_frame[..., ::-1], channels="RGB")
-            
-        # Release resources when stopped
+    while st.session_state.running:
+        ret, frame = st.session_state.cap.read()
+        if not ret:
+            st.error("Failed to capture frame")
+            st.session_state.running = False
+            break
+
+        # Process frame with YOLO model
+        results = model.predict(frame)
+        annotated_frame = results[0].plot()
+
+        # Convert BGR to RGB and display
+        FRAME_WINDOW.image(annotated_frame[..., ::-1], channels="RGB")
+
+    if not st.session_state.running and 'cap' in st.session_state:
         st.session_state.cap.release()
         del st.session_state.cap
         st.rerun()
 
-
-
 # Cleanup when app closes
 atexit.register(cleanup)
-
-
