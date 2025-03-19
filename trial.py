@@ -22,7 +22,7 @@ ALLOWED_IMAGE_TYPES = ["jpg", "jpeg", "png"]
 ALLOWED_VIDEO_TYPES = ["mp4", "avi", "mov"]
 UPLOAD_FOLDER = "uploads"
 RESULT_FOLDER = "runs/detect/predict"
-MODEL_PATH = "best.pt"
+MODEL_PATH = "fullmodel.pt"
 
 # ---------------------- Model Loading ----------------------
 @st.cache_resource
@@ -172,8 +172,7 @@ else:
         del st.session_state.cap
         st.rerun()
 
-st.markdown("---")
-st.markdown("🚀 Powered by YOLOv8 | 🔐 Secure Processing", unsafe_allow_html=True)
+
 
 # Cleanup when app closes
 atexit.register(cleanup)
