@@ -22,7 +22,7 @@ ALLOWED_IMAGE_TYPES = ["jpg", "jpeg", "png"]
 ALLOWED_VIDEO_TYPES = ["mp4", "avi", "mov"]
 UPLOAD_FOLDER = "uploads"
 RESULT_FOLDER = "runs/detect/predict"
-MODEL_PATH = "fullmodel.pt"
+MODEL_PATH = "best.pt"
 
 # ---------------------- Model Loading ----------------------
 @st.cache_resource
