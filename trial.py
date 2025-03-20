@@ -84,7 +84,7 @@ if "Image" in app_mode:
 
             col1, col2 = st.columns(2)
             with col1:
-                st.image(image_path, caption="Original Image", use_column_width=True)
+                st.image(image_path, caption="Original Image", use_column_width=False)
             with col2:
                 if latest_image_path:
                     st.image(latest_image_path, caption="Processed Image", use_column_width=True)
